@@ -1,0 +1,54 @@
+version: "3.7"
+
+services:
+  minio:
+    container_name: minio
+    restart: always
+    image: minio/minio
+    volumes:
+      - minio-data:/export
+    networks:
+      - traefik-public
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: QV77nZDFudfJzbJ6Eu3kG8JyceD8hYpC
+    command: server /export
+  labels:
+    - "traefik.enable=true"
+    - "traefik.http.routers.keycloak.rule=Host(`s3.fra-01.infra.my-company.com`)"
+    - "traefik.http.routers.keycloak.entrypoints=websecure"
+    - "traefik.http.middlewares.keycloak_https.redirectscheme.scheme=https"
+    - "traefik.http.routers.keycloak.tls.certresolver=letsencryptresolver"
+    - "traefik.http.services.keycloak.loadbalancer.server.port=9000"
+
+  traefik:
+    image: traefik:v2.2
+    restart: always
+    container_name: traefik
+    command:
+      - "--api=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencryptresolver.acme.email=info@klauke-enterprises.com"
+      - "--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json"
+      - "--providers.docker.network=traefik-public"
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-public
+
+volumes:
+  minio-data: {}
+
+networks:
+  traefik-public: {}

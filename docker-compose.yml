@@ -1,0 +1,32 @@
+version: "3.7"
+
+services:
+
+  minio:
+    container_name: minio
+    restart: always
+    image: minio/minio
+    volumes:
+      - minio-data:/export
+    ports:
+      - "9000:9000"
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: miniominio
+    command: server /export
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc config host add myminio http://minio:9000 minio miniominio;
+      /usr/bin/mc rm -r --force myminio/terraform;
+      /usr/bin/mc mb myminio/terraform;
+      /usr/bin/mc policy download myminio/terraform;
+      exit 0;
+      "
+
+volumes:
+  minio-data: {}
